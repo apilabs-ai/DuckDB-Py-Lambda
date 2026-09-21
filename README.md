@@ -1,49 +1,39 @@
-# Usage
-just pass your python code into the "pandas_code" key in the input event json of the lambda like below
+# DuckDB pandas Lambda
+
+AWS Lambda function for running pandas code with DuckDB SQL analytics.
+
+## Runtime versions
+
+- DuckDB 1.4.5 LTS (Andium)
+- pandas 2.3.3
+- NumPy 2.2.6
+
+Versions are pinned in `requirements.txt` and asserted by regression tests.
+
+## Test locally
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements-dev.txt
+pytest -v
+```
+
+## Invoke
+
+Pass Python code in the `pandas_code` property and assign the returned value to
+`result`:
+
 ```json
 {
-  "pandas_code": "import duckdb\nimport pandas as pd\nimport numpy as np\ndf = pd.DataFrame({\n'A': ['foo', 'bar', 'foo', 'bar', 'foo', 'bar', 'foo', 'foo'],\n'B': ['one', 'one', 'two', 'three', 'two', 'two', 'one', 'three'],\n'C': np.random.randn(8),\n'D': np.random.randn(8)\n})\nresult = duckdb.query('SELECT A, AVG(D) FROM df GROUP BY A').to_df()\nprint(result)"
+  "pandas_code": "df = pd.DataFrame({'category': ['a', 'a', 'b'], 'amount': [10, 20, 5]})\nresult = duckdb.sql('SELECT category, SUM(amount) AS total FROM df GROUP BY category ORDER BY category').df()"
 }
 ```
-if you require to use double quotes in the query then it must be escaped while its being passed into the event json
 
-# Example queries
-fetch count of records present in example csv
+`pandas` is already available as `pd`, and `duckdb` is already available as
+`duckdb`. A missing input returns HTTP-style status 400; execution errors return
+status 500.
 
-**Input Code**
-```python
-import duckdb
-import pandas as pd
-import numpy as np
-
-# Create a Pandas DataFrame
-df = pd.DataFrame({
-   'A': ['foo', 'bar', 'foo', 'bar', 'foo', 'bar', 'foo', 'foo'],
-   'B': ['one', 'one', 'two', 'three', 'two', 'two', 'one', 'three'],
-   'C': np.random.randn(8),
-   'D': np.random.randn(8)
-})
- 
-# Use DuckDB to run a SQL query on the DataFrame
-result = duckdb.query("SELECT A, AVG(D) FROM df GROUP BY A").to_df()
-```
-**Output**
-```
-A     avg(D)
-0 foo 0.468670
-1 bar 0.399205
-```
-
-
-# Option 1 : Run EXE file (pre-compiled)
-- Go DuckDB in Lambda EXE file is avalaible under the releases tab. You can download the zip and directly upload it to a AWS lambda and test it out your self.
-  https://github.com/skarcapital/DuckDB-Py-Lambda/releases/tag/v1
-- since the zip which contains the program and requries dependencies is > 50MB we have to upload it to AWS S3 and configure our lambda to utilize that
-- If you have questions, post it in the issues.
-
-# Option 2: Compile steps
-- the lambda/lambda_function.py file is the main program
-- inside this folder install all required dependencies locally
-`pip install duckdb pandas -t .`
-- zip the folder that has the lambda_function.py file and the dependencies
-- since the zip which contains the program and requries dependencies is > 50MB we have to upload it to AWS S3 and configure our lambda to utilize that
+> **Security:** this example intentionally executes supplied Python code. Do not
+> expose it to untrusted callers. Restrict invocation permissions and treat it as
+> arbitrary code execution inside the Lambda role and network boundary.
